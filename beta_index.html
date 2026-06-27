@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V Premium Widget Overlay</title>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --bg-base: #000;
+    --blob-1: #0a0a0a;
+    --blob-2: #111;
+    --blob-3: #171717;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --dark: #090909;
+    --surface: #181818;
+    --btn: #242424;
+    --hover: #2a2a2a;
+    --bright: #444;
+    --text: #fff;
+    --muted: #999;
+    --discord: #5865F2;
+    --discord-h: #4752c4;
+    --r-lg: 20px;
+    --r-md: 16px;
+    --r-sm: 10px;
+    --bounce: cubic-bezier(0.34, 1.65, 0.45, 1);
+    --smooth: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  body, html {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg-base);
+    font-family: var(--font);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  .ambient-bg {
+    position: absolute; inset: 0;
+    z-index: 0; overflow: hidden; pointer-events: none;
+    background: radial-gradient(circle at center, #0c0c0c 0%, var(--bg-base) 100%);
+  }
+
+  .blob {
+    position: absolute; filter: blur(120px); opacity: 0.8; transform-origin: center;
+  }
+  .blob-1 {
+    top: -10%; left: -10%; width: 60vw; height: 60vh;
+    background: var(--blob-1);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    animation: float1 25s infinite alternate ease-in-out;
+  }
+  .blob-2 {
+    bottom: -20%; right: -10%; width: 70vw; height: 70vh;
+    background: var(--blob-2);
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    animation: float2 28s infinite alternate-reverse ease-in-out;
+  }
+  .blob-3 {
+    top: 20%; left: 20%; width: 50vw; height: 50vh;
+    background: var(--blob-3);
+    border-radius: 50% 50% 40% 60% / 40% 60% 50% 40%;
+    animation: float3 32s infinite alternate ease-in-out;
+  }
+
+  @keyframes float1 {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); border-radius: 40% 60% 70% 30%/40% 50% 60% 50%; }
+    50%  { transform: translate(15vw,10vh) rotate(45deg) scale(1.1); border-radius: 60% 40% 30% 70%/50% 60% 40% 60%; }
+    100% { transform: translate(-5vw,15vh) rotate(90deg) scale(0.9); border-radius: 40% 60% 70% 30%/40% 50% 60% 50%; }
+  }
+  @keyframes float2 {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); border-radius: 60% 40% 30% 70%/60% 30% 70% 40%; }
+    50%  { transform: translate(-15vw,-10vh) rotate(-45deg) scale(1.2); border-radius: 40% 60% 70% 30%/40% 50% 60% 50%; }
+    100% { transform: translate(5vw,-20vh) rotate(-90deg) scale(0.8); border-radius: 60% 40% 30% 70%/60% 30% 70% 40%; }
+  }
+  @keyframes float3 {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); border-radius: 50% 50% 40% 60%/40% 60% 50% 40%; }
+    50%  { transform: translate(-10vw,15vh) rotate(30deg) scale(1.3); border-radius: 30% 70% 60% 40%/50% 40% 60% 50%; }
+    100% { transform: translate(15vw,-10vh) rotate(-30deg) scale(0.9); border-radius: 50% 50% 40% 60%/40% 60% 50% 40%; }
+  }
+
+  .grid-overlay {
+    position: absolute; inset: 0;
+    z-index: 1; pointer-events: none;
+    background-image: radial-gradient(circle at center, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  #mainFrame {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    border: none; z-index: 2; background: transparent;
+    transition: filter .5s ease-in-out, opacity .5s ease-in-out, transform .5s ease-in-out;
+  }
+  #mainFrame.blur-transition {
+    filter: blur(15px) brightness(0.6); opacity: .5; transform: scale(1.02);
+  }
+
+  .backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none;
+    transition: opacity .4s var(--smooth);
+    z-index: 10;
+  }
+  .backdrop.active { opacity: 1; pointer-events: auto; }
+
+  .widget-container {
+    position: fixed; bottom: 30px; right: 30px;
+    display: flex; flex-direction: column; align-items: flex-end;
+    z-index: 9999;
+  }
+
+  .toggle-btn {
+    position: relative; width: 68px; height: 68px;
+    background: var(--surface);
+    border: 2px solid var(--btn);
+    border-radius: var(--r-lg);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
+    transition:
+      transform .4s var(--bounce),
+      background-color .2s ease,
+      border-color .2s ease,
+      box-shadow .4s ease;
+    z-index: 3;
+  }
+  .toggle-btn:hover {
+    background: var(--hover); border-color: var(--bright);
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 18px 45px rgba(0,0,0,0.9), 0 0 20px rgba(100,100,100,0.3);
+  }
+  .toggle-btn:active { transform: translateY(-1px) scale(0.96); }
+  .toggle-btn.active {
+    background: var(--dark); border-color: var(--btn);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+  }
+
+  .v-logo {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Arial Black", Impact, sans-serif;
+    font-weight: 900; font-size: 32px; line-height: 1; user-select: none;
+    transform-origin: center;
+    transition: opacity .4s var(--smooth), transform .5s var(--bounce);
+  }
+  .toggle-btn:hover .v-logo { transform: scale(1.04); }
+
+  .close-icon-wrapper {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: rotate(-135deg) scale(0.4);
+    transition: opacity .4s var(--smooth), transform .5s var(--bounce);
+  }
+  .toggle-btn.active .v-logo { opacity: 0; transform: rotate(135deg) scale(0.4); pointer-events: none; }
+  .toggle-btn.active .close-icon-wrapper { opacity: 1; transform: rotate(0deg) scale(1); }
+
+  .menu-wrapper {
+    display: flex; gap: 18px; margin-bottom: 20px; z-index: 2;
+    opacity: 0; pointer-events: none;
+    transform: translateY(60px) scale(0.85); filter: blur(10px);
+    transform-origin: bottom right;
+    transition:
+      transform .55s var(--bounce),
+      opacity .4s var(--smooth),
+      filter .35s ease;
+  }
+  .menu-wrapper.open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); filter: blur(0); }
+
+  .sidebar { display: flex; flex-direction: column; gap: 12px; justify-content: flex-end; }
+
+  .icon-btn {
+    width: 52px; height: 52px;
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.03);
+    border-radius: var(--r-md);
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition:
+      transform .2s var(--bounce),
+      background-color .2s ease,
+      color .2s ease,
+      box-shadow .2s ease;
+  }
+  .icon-btn:hover {
+    background: var(--hover); color: var(--text);
+    transform: translateX(-5px) scale(1.06);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.8);
+  }
+  .icon-btn:active { transform: translateX(-2px) scale(0.96); }
+
+  .main-panel {
+    background: var(--dark); padding: 24px;
+    border-radius: var(--r-lg);
+    border: 1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.02);
+    display: flex; flex-direction: column; gap: 16px;
+    width: 350px; opacity: 0;
+  }
+
+  .grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 100px;
+    gap: 14px;
+  }
+
+  .grid-item {
+    background: var(--surface);
+    border-radius: var(--r-md);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; color: var(--muted); text-decoration: none;
+    font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+    transition:
+      transform .25s var(--bounce),
+      background-color .2s ease,
+      color .2s ease,
+      box-shadow .25s ease,
+      opacity .3s ease;
+  }
+  .grid-item:hover:not(.locked) {
+    background: var(--hover); color: var(--text);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+  }
+  .grid-item:active:not(.locked) { transform: translateY(-1px) scale(0.98); }
+  .grid-item.locked { opacity: .4; background: var(--btn); cursor: pointer; }
+  .lock-icon { display: none; width: 14px; height: 14px; margin-left: 4px; }
+  .grid-item.locked .lock-icon { display: inline-block; }
+  .grid-item .main-icon { width: 28px; height: 28px; transition: transform .25s var(--bounce); }
+  .grid-item:hover:not(.locked) .main-icon { transform: scale(1.15) translateY(-2px); }
+  .span-2 { grid-column: span 2; }
+  .span-1 { grid-column: span 1; }
+
+  #accountBtn { position: relative; overflow: hidden; }
+  #accountBtn .avatar-ring {
+    display: none; position: absolute; inset: 0;
+    border-radius: var(--r-md); border: 2px solid var(--discord);
+  }
+  #accountBtn.signed-in .avatar-ring { display: block; }
+  #accountBtn img.avatar { display: none; width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+  #accountBtn.signed-in img.avatar { display: block; }
+  #accountBtn.signed-in .main-icon { display: none; }
+  #accountBtn.signed-in #accountText { font-size: 11px; }
+
+  .open .main-panel { animation: fadeUpMain .5s cubic-bezier(0.16,1,0.3,1) forwards; }
+  .open .icon-btn:nth-child(4) { animation: fadePopBtn .4s var(--bounce) .12s forwards; }
+  .open .icon-btn:nth-child(3) { animation: fadePopBtn .4s var(--bounce) .20s forwards; }
+  .open .icon-btn:nth-child(2) { animation: fadePopBtn .4s var(--bounce) .28s forwards; }
+  .open .icon-btn:nth-child(1) { animation: fadePopBtn .4s var(--bounce) .36s forwards; }
+
+  @keyframes fadeUpMain {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadePopBtn {
+    from { opacity: 0; transform: scale(0.6) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .auth-overlay {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; opacity: 0; pointer-events: none;
+    transition: opacity .3s var(--smooth);
+  }
+  .auth-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .auth-card {
+    background: var(--dark);
+    border: 1px solid rgba(255,255,255,0.05);
+    width: 100%; max-width: 400px; padding: 40px 32px;
+    border-radius: var(--r-lg);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.9);
+    transform: translateY(20px);
+    transition: transform .3s var(--bounce);
+    position: relative;
+  }
+  .auth-overlay.open .auth-card { transform: translateY(0); }
+
+  .auth-close {
+    position: absolute; top: 20px; right: 20px;
+    background: var(--surface); border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 50%; width: 32px; height: 32px;
+    display: grid; place-items: center;
+    color: var(--muted); cursor: pointer; transition: all .2s;
+  }
+  .auth-close:hover { color: var(--text); background: var(--hover); }
+
+  .auth-title { font-size: 1.8rem; font-weight: 800; color: var(--text); margin-bottom: 8px; letter-spacing: -.02em; }
+  .auth-subtitle { color: var(--muted); font-size: .95rem; margin-bottom: 24px; }
+  .auth-subtitle .link { color: var(--text); cursor: pointer; font-weight: 600; text-decoration: underline; }
+
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: .85rem; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+  .form-group input {
+    width: 100%; background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: var(--r-sm);
+    padding: 12px 16px; color: var(--text); font-family: var(--font); font-size: 1rem;
+    transition: border-color .2s;
+  }
+  .form-group input:focus { outline: none; border-color: var(--muted); }
+
+  .btn-discord {
+    width: 100%; background: var(--discord); color: #fff;
+    border: none; padding: 14px; border-radius: var(--r-sm);
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background .2s, transform .15s var(--bounce);
+  }
+  .btn-discord:hover { background: var(--discord-h); transform: translateY(-2px); }
+  .btn-discord:active { transform: translateY(0); }
+  .btn-discord svg { flex-shrink: 0; }
+
+  .auth-divider {
+    display: flex; align-items: center; color: var(--muted);
+    font-size: .85rem; margin: 24px 0; text-transform: uppercase;
+  }
+  .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .auth-divider:not(:empty)::before { margin-right: 1em; }
+  .auth-divider:not(:empty)::after  { margin-left:  1em; }
+
+  .btn-auth-alt {
+    width: 100%; background: transparent; color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1); padding: 12px;
+    border-radius: var(--r-sm);
+    font-size: 1rem; font-weight: 500; cursor: pointer; transition: background .2s;
+  }
+  .btn-auth-alt:hover { background: var(--surface); }
+
+  .account-profile { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .account-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid var(--discord); object-fit: cover; flex-shrink: 0;
+    background: var(--btn);
+  }
+  .account-avatar-placeholder {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid var(--discord); background: var(--discord);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 800; color: #fff; flex-shrink: 0;
+  }
+  .account-info { display: flex; flex-direction: column; gap: 4px; }
+  .account-name { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+  .account-tag  { font-size: .85rem; color: var(--muted); }
+
+  .auth-submit {
+    width: 100%; background: var(--text); color: #000;
+    border: none; padding: 14px; border-radius: var(--r-sm);
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    margin-top: 8px; transition: opacity .2s;
+  }
+  .auth-submit:hover { opacity: .8; }
+  .auth-submit.danger { background: #ef4444; color: #fff; }
+
+  #authMsg {
+    font-size: .85rem; margin-bottom: 12px; display: none;
+    padding: 10px 14px; border-radius: var(--r-sm);
+    background: rgba(255,255,255,0.04);
+  }
+  #authMsg.err  { color: #f87171; }
+  #authMsg.ok   { color: #4ade80; }
+</style>
+</head>
+<body>
+
+<div class="ambient-bg">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+<div class="grid-overlay"></div>
+
+<iframe id="mainFrame" src="/AIs" allowtransparency="true"></iframe>
+<div class="backdrop" id="backdropLayer"></div>
+
+<div class="widget-container">
+  <div class="menu-wrapper" id="menuWrapper">
+    <div class="sidebar">
+      <button class="icon-btn nav-trigger" data-url="/h">
+        <i data-lucide="home" style="width:20px;height:20px;"></i>
+      </button>
+      <button class="icon-btn nav-trigger" data-url="/shared gaming">
+        <i data-lucide="users" style="width:20px;height:20px;"></i>
+      </button>
+      <button class="icon-btn nav-trigger" data-url="/vm">
+        <i data-lucide="monitor" style="width:20px;height:20px;"></i>
+      </button>
+    </div>
+
+    <div class="main-panel">
+      <div class="grid-container">
+        <div class="grid-item span-2 nav-trigger" data-url="/b">
+          <i data-lucide="globe" class="main-icon"></i>
+          Browser
+        </div>
+        <div class="grid-item span-1 nav-trigger" data-url="/a">
+          <i data-lucide="layout-grid" class="main-icon"></i>
+          Apps
+        </div>
+
+        <div class="grid-item span-1 locked" id="chatBtn" data-url="/c">
+          <i data-lucide="message-circle" class="main-icon"></i>
+          <div style="display:flex;align-items:center;">
+            Chat <i data-lucide="lock" class="lock-icon"></i>
+          </div>
+        </div>
+        <div class="grid-item span-2 nav-trigger" data-url="/g">
+          <i data-lucide="play" class="main-icon"></i>
+          Games
+        </div>
+
+        <div class="grid-item span-2 nav-trigger" data-url="/Streaming">
+          <i data-lucide="tv" class="main-icon"></i>
+          Streaming
+        </div>
+        <div class="grid-item span-1" id="accountBtn">
+          <div class="avatar-ring"></div>
+          <img class="avatar" id="accountAvatar" src="" alt="avatar" />
+          <i data-lucide="user" class="main-icon"></i>
+          <span id="accountText">Login</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toggle-btn" id="toggleBtn">
+    <div class="v-logo">V</div>
+    <div class="close-icon-wrapper">
+      <i data-lucide="x" style="width:32px;height:32px;stroke-width:2.5px;"></i>
+    </div>
+  </div>
+</div>
+
+<div class="auth-overlay" id="loginOverlay" onclick="closeModal(event)">
+  <div class="auth-card">
+    <button class="auth-close" onclick="closeModal(true)">
+      <i data-lucide="x" style="width:16px;height:16px;"></i>
+    </button>
+    <h2 class="auth-title">Welcome back</h2>
+    <p class="auth-subtitle">No account? <span class="link" onclick="openModal('signup')">Sign up free</span></p>
+
+    <div id="authMsg"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="you@example.com" required />
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="auth-submit" id="loginBtn">Sign In</button>
+      <p style="text-align:right;margin:10px 0 0;font-size:.82rem;">
+        <span id="forgotLink" style="color:var(--muted);cursor:pointer;text-decoration:underline;">Forgot password?</span>
+      </p>
+    </form>
+
+    <div class="auth-divider">or</div>
+    <button class="btn-discord" onclick="startDiscordAuth()">
+      <svg width="22" height="16" viewBox="0 0 24 18" fill="currentColor">
+        <path d="M20.317 1.492a19.84 19.84 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.31 18.31 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 1.492a.07.07 0 0 0-.032.027C.533 6.093-.32 10.555.099 14.961a.08.08 0 0 0 .031.055 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.027c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.442a.061.061 0 0 0-.031-.03z"/>
+      </svg>
+      Continue with Discord
+    </button>
+  </div>
+</div>
+
+<div class="auth-overlay" id="signupOverlay" onclick="closeModal(event)">
+  <div class="auth-card">
+    <button class="auth-close" onclick="closeModal(true)">
+      <i data-lucide="x" style="width:16px;height:16px;"></i>
+    </button>
+    <h2 class="auth-title">Create account</h2>
+    <p class="auth-subtitle">Already have one? <span class="link" onclick="openModal('login')">Sign in</span></p>
+
+    <form id="signupForm">
+      <div class="form-group">
+        <label for="regEmail">Email</label>
+        <input type="email" id="regEmail" placeholder="you@example.com" required />
+      </div>
+      <div class="form-group">
+        <label for="regPassword">Password</label>
+        <input type="password" id="regPassword" placeholder="••••••••" minlength="6" required />
+      </div>
+      <button type="submit" class="auth-submit" id="signupBtn">Join for Free</button>
+    </form>
+
+    <div class="auth-divider">or</div>
+    <button class="btn-discord" onclick="startDiscordAuth()">
+      <svg width="22" height="16" viewBox="0 0 24 18" fill="currentColor">
+        <path d="M20.317 1.492a19.84 19.84 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.31 18.31 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 1.492a.07.07 0 0 0-.032.027C.533 6.093-.32 10.555.099 14.961a.08.08 0 0 0 .031.055 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.027c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.442a.061.061 0 0 0-.031-.03z"/>
+      </svg>
+      Continue with Discord
+    </button>
+  </div>
+</div>
+
+<div class="auth-overlay" id="accountOverlay" onclick="closeModal(event)">
+  <div class="auth-card">
+    <button class="auth-close" onclick="closeModal(true)">
+      <i data-lucide="x" style="width:16px;height:16px;"></i>
+    </button>
+    <h2 class="auth-title">Your Account</h2>
+
+    <div class="account-profile">
+      <img class="account-avatar" id="modalAvatar" src="" alt="" style="display:none;" />
+      <div class="account-avatar-placeholder" id="modalAvatarPH" style="display:none;"></div>
+      <div class="account-info">
+        <div class="account-name" id="modalUsername"></div>
+        <div class="account-tag" id="modalTag"></div>
+      </div>
+    </div>
+
+    <button class="auth-submit danger" id="signOutBtn">Sign Out</button>
+    <div class="auth-divider"></div>
+    <button class="btn-auth-alt" onclick="closeModal(true)">Back to Widget</button>
+  </div>
+</div>
+
+<script>
+  lucide.createIcons();
+
+  const DISCORD_CLIENT_ID = '1519795367812796606';
+  const REDIRECT_URI = 'https://math-math-math.neocities.org';
+
+  let currentUser = null;
+  let authProvider = null;
+
+  const toggleBtn     = document.getElementById('toggleBtn');
+  const menuWrapper   = document.getElementById('menuWrapper');
+  const backdrop      = document.getElementById('backdropLayer');
+  const mainFrame     = document.getElementById('mainFrame');
+  const chatBtn       = document.getElementById('chatBtn');
+  const accountBtn    = document.getElementById('accountBtn');
+  const accountText   = document.getElementById('accountText');
+  const accountAvatar = document.getElementById('accountAvatar');
+  const loginOverlay  = document.getElementById('loginOverlay');
+  const signupOverlay = document.getElementById('signupOverlay');
+  const accOverlay    = document.getElementById('accountOverlay');
+  const authMsg       = document.getElementById('authMsg');
+
+  function msg(text, type) {
+    authMsg.textContent = text;
+    authMsg.className = type === 'ok' ? 'ok' : 'err';
+    authMsg.style.display = 'block';
+    if (type === 'ok') setTimeout(() => { authMsg.style.display = 'none'; }, 5000);
+  }
+
+  function applyUser(displayName, tag, photoURL) {
+    const letter = displayName.charAt(0).toUpperCase();
+    accountBtn.classList.add('signed-in');
+    accountText.textContent = 'Account';
+
+    const modalAv = document.getElementById('modalAvatar');
+    const modalPH = document.getElementById('modalAvatarPH');
+    document.getElementById('modalUsername').textContent = displayName;
+    document.getElementById('modalTag').textContent = tag;
+
+    if (photoURL) {
+      accountAvatar.src = photoURL;
+      accountAvatar.style.display = 'block';
+      modalAv.src = photoURL;
+      modalAv.style.display = 'block';
+      modalPH.style.display = 'none';
+    } else {
+      accountAvatar.style.display = 'none';
+      modalAv.style.display = 'none';
+      modalPH.style.display = 'flex';
+      modalPH.textContent = letter;
+    }
+
+    chatBtn.classList.remove('locked');
+    closeModal(true);
+  }
+
+  function clearUser() {
+    currentUser = null;
+    authProvider = null;
+    accountBtn.classList.remove('signed-in');
+    accountAvatar.src = '';
+    accountAvatar.style.display = 'none';
+    accountText.textContent = 'Login';
+    chatBtn.classList.add('locked');
+    closeModal(true);
+  }
+
+  // discord
+  function startDiscordAuth() {
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('d_state', state);
+    const p = new URLSearchParams({
+      client_id: DISCORD_CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      response_type: 'token',
+      scope: 'identify',
+      state
+    });
+    window.location.href = 'https://discord.com/oauth2/authorize?' + p;
+  }
+
+  async function fetchDiscordUser(token) {
+    const res = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Could not reach Discord');
+    return res.json();
+  }
+
+  function discordAvatarUrl(user) {
+    return user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`
+      : null;
+  }
+
+  function setDiscordLoggedIn(user) {
+    currentUser = user;
+    authProvider = 'discord';
+    localStorage.setItem('discord_user', JSON.stringify(user));
+    const name = user.global_name || user.username;
+    applyUser(name, '@' + user.username, discordAvatarUrl(user));
+  }
+
+  function handleOAuthCallback() {
+    if (!window.location.hash) return;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const token = params.get('access_token');
+    const state = params.get('state');
+    if (!token) return;
+
+    const saved = sessionStorage.getItem('d_state');
+    if (state && saved && state !== saved) return;
+    sessionStorage.removeItem('d_state');
+    history.replaceState(null, '', window.location.pathname);
+
+    fetchDiscordUser(token).then(setDiscordLoggedIn).catch(() => {});
+  }
+
+  // firebase bridge
+  window.setFirebaseLoggedIn = function(fbUser, photo) {
+    currentUser = fbUser;
+    authProvider = 'firebase';
+    const raw = fbUser.displayName || fbUser.email.split('@')[0];
+    const name = raw.charAt(0).toUpperCase() + raw.slice(1);
+    applyUser(name, fbUser.email, fbUser.photoURL || photo || null);
+  };
+
+  window.setFirebaseLoggedOut = function() {
+    if (authProvider !== 'firebase') return;
+    clearUser();
+  };
+
+  // widget
+  toggleBtn.addEventListener('click', () => {
+    menuWrapper.classList.toggle('open');
+    toggleBtn.classList.toggle('active');
+    backdrop.classList.toggle('active');
+  });
+  backdrop.addEventListener('click', () => {
+    menuWrapper.classList.remove('open');
+    toggleBtn.classList.remove('active');
+    backdrop.classList.remove('active');
+  });
+
+  function navigate(url) {
+    mainFrame.classList.add('blur-transition');
+    if (menuWrapper.classList.contains('open')) {
+      menuWrapper.classList.remove('open');
+      toggleBtn.classList.remove('active');
+      backdrop.classList.remove('active');
+    }
+    setTimeout(() => {
+      mainFrame.src = url;
+      const done = () => mainFrame.classList.remove('blur-transition');
+      mainFrame.onload = done;
+      setTimeout(done, 2000);
+    }, 500);
+  }
+
+  document.querySelectorAll('.nav-trigger').forEach(btn => {
+    if (btn.id === 'chatBtn') return;
+    btn.addEventListener('click', function() {
+      const url = this.dataset.url;
+      if (url) navigate(url);
+    });
+  });
+
+  chatBtn.addEventListener('click', () => {
+    if (chatBtn.classList.contains('locked')) {
+      openModal('login');
+    } else {
+      const url = chatBtn.dataset.url;
+      if (url) navigate(url);
+    }
+  });
+
+  accountBtn.addEventListener('click', () => {
+    openModal(currentUser ? 'account' : 'login');
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', () => {
+    if (authProvider === 'firebase' && window._firebaseSignOut) {
+      window._firebaseSignOut();
+    } else {
+      localStorage.removeItem('discord_user');
+      clearUser();
+    }
+  });
+
+  window.openModal = function(type) {
+    loginOverlay.classList.remove('open');
+    signupOverlay.classList.remove('open');
+    accOverlay.classList.remove('open');
+    authMsg.style.display = 'none';
+    if (menuWrapper.classList.contains('open')) {
+      menuWrapper.classList.remove('open');
+      toggleBtn.classList.remove('active');
+      backdrop.classList.remove('active');
+    }
+    if (type === 'login')   loginOverlay.classList.add('open');
+    if (type === 'signup')  signupOverlay.classList.add('open');
+    if (type === 'account') accOverlay.classList.add('open');
+  };
+
+  window.closeModal = function(e) {
+    if (e === true || (e?.target?.classList.contains('auth-overlay'))) {
+      loginOverlay.classList.remove('open');
+      signupOverlay.classList.remove('open');
+      accOverlay.classList.remove('open');
+      authMsg.style.display = 'none';
+    }
+  };
+
+  // init
+  handleOAuthCallback();
+  if (!currentUser) {
+    try {
+      const saved = localStorage.getItem('discord_user');
+      if (saved) setDiscordLoggedIn(JSON.parse(saved));
+    } catch(e) {}
+  }
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  onAuthStateChanged, signOut, sendSignInLinkToEmail,
+  isSignInWithEmailLink, signInWithEmailLink
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyDw6gdsDnnvkrey0bJe_4rTQougHhLLG44",
+  authDomain: "new-sb-sign-in.firebaseapp.com",
+  projectId: "new-sb-sign-in",
+  storageBucket: "new-sb-sign-in.firebasestorage.app",
+  messagingSenderId: "22305091390",
+  appId: "1:22305091390:web:ff6929e977241bd063466f"
+});
+const auth = getAuth(app);
+
+window._firebaseSignOut = () => signOut(auth).catch(() => {});
+
+function md5(s) {
+  function rh(n){var j,r="";for(j=0;j<=3;j++)r+="0123456789abcdef".charAt((n>>(j*8+4))&0xF)+"0123456789abcdef".charAt((n>>(j*8))&0xF);return r;}
+  function ad(x,y){var l=(x&0xFFFF)+(y&0xFFFF),m=(x>>16)+(y>>16)+(l>>16);return(m<<16)|(l&0xFFFF);}
+  function rl(n,c){return(n<<c)|(n>>>(32-c));}
+  function cm(q,a,b,x,s,t){return ad(rl(ad(ad(a,q),ad(x,t)),s),b);}
+  function ff(a,b,c,d,x,s,t){return cm((b&c)|((~b)&d),a,b,x,s,t);}
+  function gg(a,b,c,d,x,s,t){return cm((b&d)|(c&(~d)),a,b,x,s,t);}
+  function hh(a,b,c,d,x,s,t){return cm(b^c^d,a,b,x,s,t);}
+  function ii(a,b,c,d,x,s,t){return cm(c^(b|(~d)),a,b,x,s,t);}
+  function sb(x){var i,n=((x.length+8)>>6)+1,b=new Array(n*16).fill(0);
+    for(i=0;i<x.length;i++)b[i>>2]|=x.charCodeAt(i)<<((i%4)*8);
+    b[i>>2]|=0x80<<((i%4)*8);b[n*16-2]=x.length*8;return b;}
+  var x=sb(s),a=1732584193,b=-271733879,c=-1732584194,d=271733878,i,oa,ob,oc,od;
+  for(i=0;i<x.length;i+=16){oa=a;ob=b;oc=c;od=d;
+    a=ff(a,b,c,d,x[i],7,-680876936);d=ff(d,a,b,c,x[i+1],12,-389564586);c=ff(c,d,a,b,x[i+2],17,606105819);b=ff(b,c,d,a,x[i+3],22,-1044525330);
+    a=ff(a,b,c,d,x[i+4],7,-176418897);d=ff(d,a,b,c,x[i+5],12,1200080426);c=ff(c,d,a,b,x[i+6],17,-1473231341);b=ff(b,c,d,a,x[i+7],22,-45705983);
+    a=ff(a,b,c,d,x[i+8],7,1770035416);d=ff(d,a,b,c,x[i+9],12,-1958414417);c=ff(c,d,a,b,x[i+10],17,-42063);b=ff(b,c,d,a,x[i+11],22,-1990404162);
+    a=ff(a,b,c,d,x[i+12],7,1804603682);d=ff(d,a,b,c,x[i+13],12,-40341101);c=ff(c,d,a,b,x[i+14],17,-1502002290);b=ff(b,c,d,a,x[i+15],22,1236535329);
+    a=gg(a,b,c,d,x[i+1],5,-165796510);d=gg(d,a,b,c,x[i+6],9,-1069501632);c=gg(c,d,a,b,x[i+11],14,643717713);b=gg(b,c,d,a,x[i],20,-373897302);
+    a=gg(a,b,c,d,x[i+5],5,-701558691);d=gg(d,a,b,c,x[i+10],9,38016083);c=gg(c,d,a,b,x[i+15],14,-660478335);b=gg(b,c,d,a,x[i+4],20,-405537848);
+    a=gg(a,b,c,d,x[i+9],5,568446438);d=gg(d,a,b,c,x[i+14],9,-1019803690);c=gg(c,d,a,b,x[i+3],14,-187363961);b=gg(b,c,d,a,x[i+8],20,1163531501);
+    a=gg(a,b,c,d,x[i+13],5,-1444681467);d=gg(d,a,b,c,x[i+2],9,-51403784);c=gg(c,d,a,b,x[i+7],14,1735328473);b=gg(b,c,d,a,x[i+12],20,-1926607734);
+    a=hh(a,b,c,d,x[i+5],4,-378558);d=hh(d,a,b,c,x[i+8],11,-2022574463);c=hh(c,d,a,b,x[i+11],16,1839030562);b=hh(b,c,d,a,x[i+14],23,-35309556);
+    a=hh(a,b,c,d,x[i+1],4,-1530992060);d=hh(d,a,b,c,x[i+4],11,1272893353);c=hh(c,d,a,b,x[i+7],16,-155497632);b=hh(b,c,d,a,x[i+10],23,-1094730640);
+    a=hh(a,b,c,d,x[i+13],4,681279174);d=hh(d,a,b,c,x[i],11,-358537222);c=hh(c,d,a,b,x[i+3],16,-722521979);b=hh(b,c,d,a,x[i+6],23,76029189);
+    a=hh(a,b,c,d,x[i+9],4,-640364487);d=hh(d,a,b,c,x[i+12],11,-421815835);c=hh(c,d,a,b,x[i+15],16,530742520);b=hh(b,c,d,a,x[i+2],23,-995338651);
+    a=ii(a,b,c,d,x[i],6,-198630844);d=ii(d,a,b,c,x[i+7],10,1126891415);c=ii(c,d,a,b,x[i+14],15,-1416354905);b=ii(b,c,d,a,x[i+5],21,-57434055);
+    a=ii(a,b,c,d,x[i+12],6,1700485571);d=ii(d,a,b,c,x[i+3],10,-1894986606);c=ii(c,d,a,b,x[i+10],15,-1051523);b=ii(b,c,d,a,x[i+1],21,-2054922799);
+    a=ii(a,b,c,d,x[i+8],6,1873313359);d=ii(d,a,b,c,x[i+15],10,-30611744);c=ii(c,d,a,b,x[i+6],15,-1560198380);b=ii(b,c,d,a,x[i+13],21,1309151649);
+    a=ii(a,b,c,d,x[i+4],6,-145523070);d=ii(d,a,b,c,x[i+11],10,-1120210379);c=ii(c,d,a,b,x[i+2],15,718787259);b=ii(b,c,d,a,x[i+9],21,-343485551);
+    a=ad(a,oa);b=ad(b,ob);c=ad(c,oc);d=ad(d,od);}
+  return rh(a)+rh(b)+rh(c)+rh(d);
+}
+
+async function resolveGravatar(email) {
+  const hash = md5(email.trim().toLowerCase());
+  const url = `https://www.gravatar.com/avatar/${hash}?s=128&d=404`;
+  try {
+    const r = await fetch(url, { method: 'HEAD' });
+    return r.ok ? url : null;
+  } catch { return null; }
+}
+
+const msgEl = document.getElementById('authMsg');
+function showErr(t) { msgEl.textContent = t; msgEl.className = 'err'; msgEl.style.display = 'block'; }
+function showOk(t)  { msgEl.textContent = t; msgEl.className = 'ok';  msgEl.style.display = 'block'; setTimeout(() => { msgEl.style.display = 'none'; }, 5000); }
+
+const linkSettings = { url: 'https://math-math-math.neocities.org', handleCodeInApp: true };
+
+if (isSignInWithEmailLink(auth, window.location.href)) {
+  let email = localStorage.getItem('emailForSignIn');
+  if (!email) email = window.prompt('Confirm your email to finish signing in:');
+  if (email) {
+    signInWithEmailLink(auth, email, window.location.href)
+      .then(() => {
+        localStorage.removeItem('emailForSignIn');
+        history.replaceState(null, '', window.location.pathname);
+      })
+      .catch(() => {});
+  }
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    const photo = await resolveGravatar(user.email);
+    window.setFirebaseLoggedIn(user, photo);
+  } else {
+    window.setFirebaseLoggedOut();
+  }
+});
+
+document.getElementById('forgotLink').addEventListener('click', () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) { showErr('Enter your email above first.'); return; }
+  const el = document.getElementById('forgotLink');
+  el.style.pointerEvents = 'none';
+  el.textContent = 'Sending…';
+  sendSignInLinkToEmail(auth, email, linkSettings)
+    .then(() => {
+      localStorage.setItem('emailForSignIn', email);
+      el.style.pointerEvents = '';
+      el.textContent = 'Forgot password?';
+      showOk('Check your inbox — we sent a sign-in link.');
+    })
+    .catch(err => {
+      el.style.pointerEvents = '';
+      el.textContent = 'Forgot password?';
+      showErr(err.message);
+    });
+});
+
+document.getElementById('loginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  btn.textContent = 'Signing in…';
+  msgEl.style.display = 'none';
+  signInWithEmailAndPassword(auth,
+    document.getElementById('loginEmail').value,
+    document.getElementById('loginPassword').value
+  ).then(() => { btn.textContent = 'Sign In'; })
+   .catch(err => { btn.textContent = 'Sign In'; showErr(err.message); });
+});
+
+document.getElementById('signupForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const btn = document.getElementById('signupBtn');
+  btn.textContent = 'Creating account…';
+  createUserWithEmailAndPassword(auth,
+    document.getElementById('regEmail').value,
+    document.getElementById('regPassword').value
+  ).then(() => { btn.textContent = 'Join for Free'; })
+   .catch(err => { btn.textContent = 'Join for Free'; showErr(err.message); });
+});
+</script>
+
+</body>
+</html>
